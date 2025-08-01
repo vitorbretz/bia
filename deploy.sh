@@ -8,10 +8,10 @@ set -e
 
 # Configurações padrão
 DEFAULT_REGION="us-east-1"
-DEFAULT_CLUSTER="bia-cluster-alb"
-DEFAULT_SERVICE="bia-service"
-DEFAULT_TASK_FAMILY="bia-tf"
-DEFAULT_ECR_REPO="bia-app"
+DEFAULT_CLUSTER="cluster-bia"
+DEFAULT_SERVICE="service-new-bia"
+DEFAULT_TASK_FAMILY="task-bia"
+DEFAULT_ECR_REPO="bia"
 
 # Cores para output
 RED='\033[0;31m'
@@ -175,36 +175,53 @@ create_new_task_definition() {
     cat > task-definition.json << EOF
 {
     "family": "$TASK_FAMILY",
-    "networkMode": "awsvpc",
+    "networkMode": "bridge",
     "requiresCompatibilities": ["EC2"],
-    "cpu": "256",
-    "memory": "512",
     "executionRoleArn": "arn:aws:iam::$(get_account_id):role/ecsTaskExecutionRole",
     "containerDefinitions": [
         {
-            "name": "bia-container",
+            "name": "bia",
             "image": "${ECR_URI}:${IMAGE_TAG}",
+            "cpu": 1024,
+            "memory": 819,
+            "memoryReservation": 410,
             "portMappings": [
                 {
                     "containerPort": 8080,
-                    "protocol": "tcp"
+                    "hostPort": 80,
+                    "protocol": "tcp",
+                    "name": "porta-80",
+                    "appProtocol": "http"
                 }
             ],
             "essential": true,
+            "environment": [
+                {
+                    "name": "DB_PWD",
+                    "value": "bwkS1IudF8KElrrc2mhk"
+                },
+                {
+                    "name": "DB_HOST",
+                    "value": "bia.c8he4q2uufne.us-east-1.rds.amazonaws.com"
+                },
+                {
+                    "name": "DB_PORT",
+                    "value": "5432"
+                },
+                {
+                    "name": "DB_USER",
+                    "value": "postgres"
+                }
+            ],
             "logConfiguration": {
                 "logDriver": "awslogs",
                 "options": {
                     "awslogs-group": "/ecs/$TASK_FAMILY",
+                    "awslogs-create-group": "true",
                     "awslogs-region": "$REGION",
                     "awslogs-stream-prefix": "ecs"
                 }
-            },
-            "environment": [
-                {
-                    "name": "NODE_ENV",
-                    "value": "production"
-                }
-            ]
+            }
         }
     ]
 }
